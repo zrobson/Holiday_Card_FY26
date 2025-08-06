@@ -10,14 +10,14 @@ where involvement_role = 'Member'
 
 , BOT_and_Alumni as (
 select mv_entity.household_id
-      ,'Y' as BOT
+      ,'Y' as BOT_and_Alumni
 from v_committee_trustee
 inner join mv_entity on mv_entity.donor_id = v_committee_trustee.constituent_donor_id
 inner join mv_entity_ksm_degrees on mv_entity_ksm_degrees.donor_id = v_committee_trustee.constituent_donor_id
 )
 
 
--- confirm with liam that the data in CATco is correct, if not, create a temp table
+-- confirm with liam that the data in CATco is correct, if not, create a temp table (DISCUSS FURTHER WITH LIAM.. CREATE TEMP TABLE AND CHECK END DATES?)
 , CSM as (
 select mv_entity.household_id
       ,'Y' as CSM
@@ -129,12 +129,12 @@ inner join mv_entity on mv_entity.donor_id = v_committee_phs.constituent_donor_i
 )
 */
 
-, campaign_credit as (
+, full_circle_recognition_band as (
 select household_id
 , gs.full_circle_recognition
 , Case
-  When gs.full_circle_recognition >= 1E6 Then '$1M+'
-  When gs.full_circle_recognition >= 100E3 Then '$100K+'
+  When gs.full_circle_recognition >= 1E6 Then '$1M_kfc_donor'
+  When gs.full_circle_recognition >= 100E3 Then '$100K_kfc_donor'
   -- etc
   End
   As full_circle_recognition_band
@@ -142,26 +142,6 @@ from mv_ksm_giving_summary gs
 Where gs.full_circle_recognition > 0
 )
 
-, campaign_donor as (
-select household_id
-from mv_ksm_giving_summary gs
-where ngc_cfy > 0 -- fy25
-or ngc_pfy1 > 0 --fy24
-or ngc_pfy2 > 0 --fy23
-or ngc_pfy3 > 0 -- fy22
-)
-
-, campaign_donor_100k as (
-select household_id
-from mv_ksm_giving_summary
-where (ngc_cfy + ngc_pfy1 + ngc_pfy2 + ngc_pfy3) >= 100000
-)
-
-, campaign_donor_1M as (
-select household_id
-from mv_ksm_giving_summary
-where (ngc_cfy + ngc_pfy1 + ngc_pfy2 + ngc_pfy3) >= 1000000
-)
 
 , asia_pevc as (
 select mv_entity.household_id
@@ -172,7 +152,7 @@ inner join mv_entity on mv_entity.donor_id = v_committee_pe_asia.constituent_don
 
 , club_leader as (
 select distinct mv_entity.household_id
-      ,'Y' as clun_leader
+      ,'Y' as club_leader
 from mv_involvement
 inner join mv_entity on mv_entity.donor_id = mv_involvement.constituent_donor_id
 where involvement_role IN ('Club Leader'
@@ -278,9 +258,122 @@ select household_id
 from mv_ksm_giving_summary
 )
 
-, family as ( --- ask if relationship code has already been built
+/*
+, family as ( --- *** ask if relationship code has already been built
 select *
 from stg_alumni.ucinn_ascendv2__contact_report_relation__c
 inner join mv_entity on mv_entity.salesforce_id = stg_alumni.ucinn_ascendv2__contact_report_relation__c.ucinn_ascendv2__contact__c
 where mv_entity.household_id = 0000648089
 )
+*/
+
+
+, dean_salutation as (
+select mv_entity.household_id
+      ,P_Dean_Salut
+      ,p_full_name
+      ,P_Dean_Source
+      ,Spouse_Dean_Salut
+      ,spouse_full_name
+      ,Spouse_Dean_Source
+      ,Joint_Dean_Salut
+      ,Joint_Fullname
+from v_entity_salutations
+inner join mv_entity on mv_entity.donor_id = v_entity_salutations.donor_id
+)
+
+
+, lagm_and_pm as (
+select household_id 
+       ,prospect_manager_name
+       ,lagm_name
+from mv_assignments
+)
+
+
+, special_handling as (
+select mv_entity.household_id
+     ,sh.service_indicators_concat
+     ,sh_spouse.service_indicators_concat as spouse_service_indicators_concat
+     ,sh.No_contact
+     ,sh_spouse.No_contact as spouse_No_contact
+     ,sh.NO_Mail_IND
+     ,sh_spouse.NO_Mail_IND as spouse_NO_Mail_IND
+     ,sh.NO_EMail_IND 
+     ,sh_spouse.NO_EMail_IND as spouse_NO_EMail_IND
+from mv_entity
+left join mv_special_handling sh on sh.donor_id = mv_entity.donor_id
+left join mv_special_handling sh_spouse on sh_spouse.donor_id = mv_entity.spouse_donor_id
+where mv_entity.HOUSEHOLD_ID = '0001048101'
+and mv_entity.household_primary = 'Y'
+)
+
+
+--- Employment - primary
+--- Also use keep dense rank function to pull most recent employee start date
+
+, employ as (
+select distinct c.UCINN_ASCENDV2__RELATED_CONTACT_DONOR_ID_FORMULA__C
+       ,max (c.ap_is_primary_employment__c) keep (dense_rank First Order by c.ucinn_ascendv2__start_date__c desc) as primary_employ_ind
+       ,max (c.ucinn_ascendv2__job_title__c) keep (dense_rank first order by c.ucinn_ascendv2__start_date__c desc) as primary_job_title
+       ,max (c.UCINN_ASCENDV2__RELATED_ACCOUNT_NAME_FORMULA__C) keep (dense_rank first order by c.ucinn_ascendv2__start_date__c desc) as primary_employer
+from stg_alumni.ucinn_ascendv2__Affiliation__c c
+where c.ap_is_primary_employment__c = 'true'
+group by c.UCINN_ASCENDV2__RELATED_CONTACT_DONOR_ID_FORMULA__C
+)
+
+
+-- email
+, email as (
+select c.ucinn_ascendv2__donor_id__c
+       ,c.email
+from stg_alumni.contact c
+)
+
+
+
+
+-- add KDHC_Notes_FY25 to code
+select distinct mv_entity.household_id
+      ,GAB.GAB
+      ,BOT_and_Alumni.BOT_and_Alumni
+      ,CSM.CSM
+      ,ebfa.ebfa
+      ,dfc_visit_any_year.dfc_visit_any_year
+      ,dfc_visit_past_year.dfc_visit_past_year
+      ,planned_gift_donor.planned_gift_donor
+      ,kac.kac
+      ,pevc.pevc
+      ,mbai.mbai
+      ,healthcare.healthcare
+      ,realestate.realestate
+      ,amp.amp
+      ,phs.phs
+      ,full_circle_recognition_band.full_circle_recognition_band
+      ,asia_pevc.asia_pevc
+      ,club_leader.club_leader
+      ,yab.yab
+      ,tech.tech
+      ,kfn_associate.kfn_associate
+from mv_entity
+left join GAB on GAB.household_id = mv_entity.household_id
+left join BOT_and_Alumni on BOT_and_Alumni.household_id = mv_entity.household_id
+left join CSM on CSM.household_id = mv_entity.household_id
+left join ebfa on ebfa.household_id = mv_entity.household_id
+left join dfc_visit_any_year on dfc_visit_any_year.household_id = mv_entity.household_id
+left join dfc_visit_past_year on dfc_visit_past_year.household_id = mv_entity.household_id
+left join planned_gift_donor on planned_gift_donor.household_id = mv_entity.household_id
+left join kac on kac.household_id = mv_entity.household_id
+left join pevc on pevc.household_id = mv_entity.household_id
+left join mbai on mbai.household_id = mv_entity.household_id
+left join healthcare on healthcare.household_id = mv_entity.household_id
+left join realestate on realestate.household_id = mv_entity.household_id
+left join amp on amp.household_id = mv_entity.household_id
+left join phs on phs.household_id = mv_entity.household_id
+left join full_circle_recognition_band on full_circle_recognition_band.household_id = mv_entity.household_id
+left join asia_pevc on asia_pevc.household_id = mv_entity.household_id
+left join club_leader on club_leader.household_id = mv_entity.household_id
+left join yab on yab.household_id = mv_entity.household_id
+left join tech on tech.household_id = mv_entity.household_id
+left join kfn_associate on kfn_associate.household_id = mv_entity.household_id
+left join Professional_list_Recipient on Professional_list_Recipient.household_id = 
