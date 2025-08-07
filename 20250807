@@ -45,13 +45,13 @@ and ap_contact_report_author_constituent__c = '003Uz000008fdsIIAQ' -- DFC
 
 , dfc_visit_past_year as (
 select distinct mv_entity.household_id
-      ,'Y' as dfc_visit_past_year
+       ,'Y' as dfc_visit_past_year
 from stg_alumni.ucinn_ascendv2__contact_report__c
 inner join mv_entity on mv_entity.salesforce_id = stg_alumni.ucinn_ascendv2__contact_report__c.ucinn_ascendv2__contact__c
 cross join v_current_calendar
 where ucinn_ascendv2__contact_method__c = 'Visit'
 and ap_contact_report_author_constituent__c = '003Uz000008fdsIIAQ' -- DFC
-and ucinn_ascendv2__date__c >= v_current_calendar.yesterday_last_year
+and ucinn_ascendv2__date__c >= DATE '2024-10-01' -- the last date I pulled last years card was october 3rd, so pulling from start of october to be safe
 )
 
 , planned_gift_donor as (
@@ -304,8 +304,8 @@ select mv_entity.household_id
 from mv_entity
 left join mv_special_handling sh on sh.donor_id = mv_entity.donor_id
 left join mv_special_handling sh_spouse on sh_spouse.donor_id = mv_entity.spouse_donor_id
-where mv_entity.HOUSEHOLD_ID = '0001048101'
-and mv_entity.household_primary = 'Y'
+where mv_entity.household_primary = 'Y'
+--and mv_entity.HOUSEHOLD_ID = '0001048101' -- spot check (primary and spouse have different SH codes
 )
 
 
@@ -313,28 +313,48 @@ and mv_entity.household_primary = 'Y'
 --- Also use keep dense rank function to pull most recent employee start date
 
 , employ as (
-select distinct c.UCINN_ASCENDV2__RELATED_CONTACT_DONOR_ID_FORMULA__C
+select distinct mv_entity.household_id
        ,max (c.ap_is_primary_employment__c) keep (dense_rank First Order by c.ucinn_ascendv2__start_date__c desc) as primary_employ_ind
        ,max (c.ucinn_ascendv2__job_title__c) keep (dense_rank first order by c.ucinn_ascendv2__start_date__c desc) as primary_job_title
        ,max (c.UCINN_ASCENDV2__RELATED_ACCOUNT_NAME_FORMULA__C) keep (dense_rank first order by c.ucinn_ascendv2__start_date__c desc) as primary_employer
 from stg_alumni.ucinn_ascendv2__Affiliation__c c
+inner join mv_entity on mv_entity.donor_id = c.UCINN_ASCENDV2__RELATED_CONTACT_DONOR_ID_FORMULA__C
 where c.ap_is_primary_employment__c = 'true'
-group by c.UCINN_ASCENDV2__RELATED_CONTACT_DONOR_ID_FORMULA__C
+group by mv_entity.household_id
 )
 
-
--- email
+/*
+-- email (not running....)
 , email as (
-select c.ucinn_ascendv2__donor_id__c
+select mv_entity.household_id
        ,c.email
 from stg_alumni.contact c
+inner join mv_entity on mv_entity.donor_id = c.ucinn_ascendv2__donor_id__c
 )
-
-
+*/
 
 
 -- add KDHC_Notes_FY25 to code
 select distinct mv_entity.household_id
+      ,dean_salutation.P_Dean_Salut
+      ,dean_salutation.p_full_name
+      ,special_handling.service_indicators_concat
+      ,special_handling.No_contact
+      ,special_handling.NO_Mail_IND
+      ,special_handling.NO_EMail_IND 
+      ,dean_salutation.Spouse_Dean_Salut
+      ,dean_salutation.spouse_full_name
+      ,special_handling.spouse_service_indicators_concat
+      ,special_handling.spouse_No_contact
+      ,special_handling.spouse_NO_Mail_IND
+      ,special_handling.spouse_NO_EMail_IND
+      ,dean_salutation.Joint_Dean_Salut
+      ,dean_salutation.Joint_Fullname
+      ,employ.primary_job_title
+      ,employ.primary_employer
+      ,lagm_and_pm.prospect_manager_name
+      ,lagm_and_pm.lagm_name
+      --,email.email
       ,GAB.GAB
       ,BOT_and_Alumni.BOT_and_Alumni
       ,CSM.CSM
@@ -355,6 +375,15 @@ select distinct mv_entity.household_id
       ,yab.yab
       ,tech.tech
       ,kfn_associate.kfn_associate
+      ,Professional_list_Recipient.Professional_list_Recipient
+      ,personalized_list_Recipient.personalized_list_Recipient
+      ,vendor_list_Recipient.vendor_list_Recipient
+      ,last_gift.last_ngc_tx_id
+      ,last_gift.last_ngc_date
+      ,last_gift.last_ngc_opportunity_type
+      ,last_gift.last_ngc_designation_id
+      ,last_gift.last_ngc_designation
+      ,last_gift.last_ngc_recognition_credit
 from mv_entity
 left join GAB on GAB.household_id = mv_entity.household_id
 left join BOT_and_Alumni on BOT_and_Alumni.household_id = mv_entity.household_id
@@ -376,4 +405,12 @@ left join club_leader on club_leader.household_id = mv_entity.household_id
 left join yab on yab.household_id = mv_entity.household_id
 left join tech on tech.household_id = mv_entity.household_id
 left join kfn_associate on kfn_associate.household_id = mv_entity.household_id
-left join Professional_list_Recipient on Professional_list_Recipient.household_id = 
+left join Professional_list_Recipient on Professional_list_Recipient.household_id = mv_entity.household_id
+left join personalized_list_Recipient on personalized_list_Recipient.household_id = mv_entity.household_id
+left join vendor_list_Recipient on vendor_list_Recipient.household_id = mv_entity.household_id
+left join last_gift on last_gift.household_id = mv_entity.household_id
+left join dean_salutation on dean_salutation.household_id = mv_entity.household_id
+left join lagm_and_pm on lagm_and_pm.household_id = mv_entity.household_id
+left join special_handling on special_handling.household_id = mv_entity.household_id
+left join employ on employ.household_id = mv_entity.household_id
+--left join email on email.household_id = mv_entity.household_id
