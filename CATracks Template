@@ -1,0 +1,1603 @@
+
+
+WITH HH As (
+Select *
+From rpt_pbh634.v_entity_ksm_households hh       
+)
+
+, GAB AS (
+Select gab.id_number
+      ,hh.household_id
+      ,gab.role as gab_role
+      ,'Y' GAB
+From table(rpt_pbh634.ksm_pkg_tmp.tbl_committee_gab) gab
+Inner Join hh On gab.id_number = hh.id_number
+where gab.role = 'Member'
+)
+
+, BOT_AND_ALUMNI AS (
+SELECT t.id_number
+       , hh.household_id
+      ,'Y' as BOT_AND_ALUMNI
+From table(rpt_pbh634.ksm_pkg_tmp.tbl_committee_trustee) t
+INNER JOIN RPT_PBH634.v_Entity_Ksm_Degrees d ON d.id_number = t.id_number
+Inner Join hh On t.id_number = hh.id_number
+)  
+
+
+
+, CSM AS (
+select distinct gift_clubs.gift_club_id_number
+        , hh.household_id
+       , 'Y' as CSM
+from gift_clubs
+Inner Join hh On gift_clubs.gift_club_id_number = hh.id_number
+where gift_clubs.gift_club_code = 'KCD'
+and gift_clubs.gift_club_status = 'A'
+)
+
+
+, Executive_Board_for_Asia As (
+select a.id_number
+       , hh.household_id
+      ,'Y' as executive_board_for_asia 
+from table(rpt_pbh634.ksm_pkg_tmp.tbl_committee_asia) a
+Inner Join hh On a.id_number = hh.id_number
+)    
+
+
+, dfc_visit_any_year as (
+SELECT cr.id_number
+      , hh.household_id
+      ,'Y' as dfc_visit_any_year
+FROM rpt_pbh634.v_contact_reports_fast cr
+Inner Join hh On cr.id_number = hh.id_number
+WHERE cr.credited = '0000804796'
+and cr.contact_type IN ('Visit')
+)
+
+
+, dfc_visit_cfy_pfy1 as (
+SELECT cr.id_number
+      , hh.household_id
+      ,'Y' as dfc_visit_cfy_pfy1
+FROM rpt_pbh634.v_contact_reports_fast cr
+Inner Join hh On cr.id_number = hh.id_number
+WHERE cr.credited = '0000804796'
+and cr.contact_type IN ('Visit')
+AND cr.fiscal_year in ('2025')
+)
+
+, KLC As ( 
+select klc.id_number
+      ,klc.household_id
+      ,'Y' as KLC
+from rpt_abm1914.v_klc_members klc
+)
+
+, gt AS (
+SELECT gt.*
+FROM RPT_PBH634.v_Ksm_Giving_Trans gt
+WHERE (gt.transaction_type_code = 'BE' -- Bequest Expectancy
+OR gt.transaction_type_code = '32' -- Charitable Remainder Annuity Trusts
+OR gt.transaction_type_code = '31' -- Charitable Remainder Unitrusts
+OR gt.transaction_type = '37' -- Lead Trusts
+OR gt.transaction_type_code = 'LT' -- Lead Trust Pledge
+OR gt.transaction_type = '38' -- Life Estate
+OR gt.transaction_type_code = 'LE'-- Life Insurance Expectancy
+      )
+AND gt.recognition_credit > 0
+AND (gt.pledge_status <> 'I' OR gt.pledge_status IS NULL)
+)
+
+, planned_gift_donor As (
+Select distinct gt.id_number
+       , hh.household_id
+       , 'Y' as planned_gift_donor
+FROM gt
+INNER JOIN Entity e ON e.id_number = gt.Id_number
+Inner Join hh On hh.id_number = gt.id_number
+WHERE e.record_status_code = 'A' 
+and e.person_or_org = 'P' 
+)
+
+, KAC As (
+select k.id_number
+       , hh.household_id
+      ,'Y' as KAC 
+from table(rpt_pbh634.ksm_pkg_tmp.tbl_committee_kac) k
+Inner Join hh On k.id_number = hh.id_number
+)
+
+, PEVC As (
+select PEVC.id_number
+       , hh.household_id
+      ,'Y' as PEVC 
+from table(rpt_pbh634.ksm_pkg_tmp.tbl_committee_privateequity) PEVC
+Inner Join hh On PEVC.id_number = hh.id_number
+) 
+
+, MBAi As (
+select MBAi.id_number
+       , hh.household_id
+      ,'Y' as MBAi 
+from table(rpt_pbh634.ksm_pkg_tmp.tbl_committee_privateequity) MBAi
+Inner Join hh On MBAi.id_number = hh.id_number
+)
+
+
+, healthcare As (
+select healthcare.id_number
+       , hh.household_id
+      ,'Y' as healthcare 
+from table(rpt_pbh634.ksm_pkg_tmp.tbl_committee_healthcare) healthcare
+Inner Join hh On healthcare.id_number = hh.id_number
+)
+
+, RealEstate As (
+select RealEstate.id_number
+       , hh.household_id
+      ,'Y' as RealEstate 
+from table(rpt_pbh634.ksm_pkg_tmp.tbl_committee_RealEstCouncil) RealEstate
+Inner Join hh On RealEstate.id_number = hh.id_number
+) 
+
+, AMP As (
+select AMP.id_number
+       , hh.household_id
+      ,'Y' as AMP 
+from table(rpt_pbh634.ksm_pkg_tmp.tbl_committee_AMP) AMP
+Inner Join hh On AMP.id_number = hh.id_number
+) 
+
+, PHS As (
+select PHS.id_number
+       , hh.household_id
+      ,'Y' as PHS 
+from table(rpt_pbh634.ksm_pkg_tmp.tbl_committee_phs) PHS
+Inner Join hh On PHS.id_number = hh.id_number
+)
+
+
+, event_attendee As (
+select distinct cr.id_number
+      , hh.household_id
+      ,'Y' as event_attendee 
+from rpt_pbh634.v_contact_reports_fast cr
+Inner join hh On cr.id_number = hh.id_number
+WHERE cr.credited = '0000804796'
+and cr.contact_type IN ('Event')
+AND cr.fiscal_year in ('2025')
+)
+
+, ngc_2008_to_present as (
+select household_id
+      ,sum(Case When tx_gypm_ind !='Y' And fiscal_year Between 2008 And cal.curr_fy then hh_credit Else 0 End) As ngc_2008_to_present
+      from rpt_pbh634.v_ksm_giving_trans_hh
+Cross Join rpt_pbh634.v_current_calendar cal
+group by household_id
+)
+
+, ngc_100K_2008_to_present as (
+select household_id
+       ,'Y' as ngc_100K_2008_to_present
+from ngc_2008_to_present
+where ngc_2008_to_present >= 100000
+)
+
+, ngc_1M_2008_to_present as (
+select household_id
+       ,'Y' as ngc_1M_2008_to_present
+from ngc_2008_to_present
+where ngc_2008_to_present >= 1000000
+)
+
+, Asia_PEVC As (
+select Asia_PEVC.id_number
+       , hh.household_id
+      ,'Y' as Asia_PEVC 
+from table(rpt_pbh634.ksm_pkg_tmp.tbl_committee_pe_asia) Asia_PEVC
+Inner Join hh On hh.id_number = Asia_PEVC.id_number
+) 
+
+, Club_Leaders AS (
+SELECT c.ID_Number
+      ,hh.household_id
+      , 'Y' as Club_Leaders
+From rpt_ssh5552.v_ksm_club_leaders c
+inner join hh on hh.id_number = c.id_number
+where c.committee_status_code = 'C'
+)
+
+, Young_Alumni_Board As (
+select Young_Alumni_Board.id_number
+       , hh.household_id
+      ,'Y' as Young_Alumni_Board 
+From table(rpt_pbh634.ksm_pkg_tmp.tbl_committee_yab) Young_Alumni_Board
+Inner Join hh On hh.id_number = Young_Alumni_Board.id_number
+)
+
+, Tech_Council as (
+select hh.id_number
+      ,hh.household_id
+      ,'Y' as Tech_Council
+from hh
+where id_number in (
+'0000335630'
+,'0000419930'
+,'0000290319'
+,'0000345972'
+,'0000368808'
+,'0000548973'
+,'0000442012'
+,'0000403612'
+)      
+)
+
+, KFN_Associate as (
+select kfn.id_number
+      ,hh.household_id
+      ,'Y' as KFN_Associate
+From table(rpt_pbh634.ksm_pkg_tmp.tbl_committee_kfn) kfn
+inner join hh on hh.id_number = kfn.id_number
+where role = 'Associate Member'
+)
+
+, Professional_list_Recipient as (
+select mailing_list.id_number
+      , hh.household_id
+      ,mailing_list.xcomment
+      ,'Y' as Professional_list_Recipient
+from mailing_list
+Inner Join hh On hh.id_number = mailing_list.id_number
+where mailing_list.mail_list_code = 'KDHC' 
+and mailing_list.mail_list_status_code = 'A' 
+and lower(mailing_list.xcomment) LIKE 'professional%'
+)
+
+, Personalized_list_Recipient as (
+select mailing_list.id_number
+      , hh.household_id
+      ,mailing_list.xcomment
+      ,'Y' as Personalized_list_Recipient
+from mailing_list
+Inner Join hh On hh.id_number = mailing_list.id_number
+where mailing_list.mail_list_code = 'KDHC' 
+and mailing_list.mail_list_status_code = 'A' 
+and lower(mailing_list.xcomment) LIKE 'personalized%'
+)
+
+, Vendor_list_Recipient as (
+select mailing_list.id_number
+      , hh.household_id
+      ,mailing_list.xcomment
+      ,'Y' as Vendor_list_Recipient
+from mailing_list
+Inner Join hh On hh.id_number = mailing_list.id_number
+where mailing_list.mail_list_code = 'KDHC' 
+and mailing_list.mail_list_status_code = 'A' 
+and lower(mailing_list.xcomment) LIKE 'vendor%'
+)
+
+
+, Professional_fy25_manual_adds as (
+select e.id_number
+      ,hh.household_id
+      ,'Y' as Professional_fy25_manual_adds
+from entity e
+Inner Join hh On hh.id_number = e.id_number
+where e.id_number in (
+'0000896962' --  no tag in CATs
+,'0000441055' --  no tag in CATs
+-- fy25 manual adds newly added ids to CATs
+ ,'0000514667'
+ ,'0000837036'
+, '0000931049'
+, '0000931050'
+, '0000931051'
+, '0000931054' -- same hh as 0000931057
+, '0000931057' -- same hh as 0000931054
+, '0000931061'
+, '0000931064'
+, '0000931066'
+, '0000931070'
+, '0000931072'
+, '0000931078'
+, '0000931079'
+, '0000931081'
+, '0000931082'
+, '0000931083'
+, '0000931087'
+-- other FY25 manual adds with existing ids
+, '0000439435'
+, '0000289505'
+, '0000373345'
+, '0000234323'
+, '0000246649'
+, '0000917758'
+, '0000838439'
+, '0000837036'
+, '0000768697'
+, '0000576156'
+, '0000859654'
+, '0000648261'
+, '0000853341'
+, '0000693095'
+, '0000853350'
+, '0000908967'
+, '0000255972'
+, '0000853373'
+, '0000576295'
+, '0000376714'
+, '0000833069'
+, '0000146626'
+, '0000624229'
+, '0000423897'
+, '0000831042'
+, '0000853384'
+, '0000846384'
+, '0000343920'
+, '0000514667'
+, '0000853386'
+, '0000438744'
+, '0000573302'
+, '0000550509'
+, '0000879929'
+, '0000746803'
+, '0000853390'
+, '0000592880'
+, '0000280698'
+, '0000853402'
+, '0000908965'
+, '0000183445'
+, '0000514667'
+, '0000913575'
+, '0000930442'
+, '0000689612'
+, '0000908964'
+, '0000852227'
+, '0000852228'
+, '0000852229'
+, '0000896962'
+, '0000852230'
+, '0000679775'
+, '0000546761'
+, '0000908516'
+, '0000897413'
+, '0000853374'
+, '0000246895'
+, '0000625086'
+, '0000334268'
+, '0000853351'
+, '0000842575'
+, '0000853401'
+, '0000347014'
+, '0000853408'
+, '0000908966'
+, '0000562844'
+, '0000852221'
+, '0000853348'
+, '0000614964'
+, '0000700606'
+, '0000852233'
+, '0000549724'
+, '0000853346'
+, '0000549781'
+, '0000832970'
+, '0000853352'
+, '0000197623'
+, '0000853382'
+, '0000853383'
+, '0000693125'
+, '0000718281'
+, '0000853385'
+, '0000441055'
+, '0000853399'
+, '0000885050'
+, '0000297927'
+, '0000432138'
+)
+)
+
+
+
+, personalized_fy25_manual_adds as (
+select e.id_number
+      ,hh.household_id
+      ,'Y' as personalized_fy25_manual_adds
+from entity e
+Inner Join hh On hh.id_number = e.id_number
+where e.id_number in (
+'0000425294' --  Helen H. Zell (currently tagged as vendor in CATs)
+,'0000713584' -- fy25 manual add
+,'0000609726' -- fy25 manual add
+-- manual adds from 9/30/2024
+, '0000510155'
+, '0000532526'
+, '0000532383'
+, '0000532282'
+, '0000429275'
+, '0000734449'
+, '0000532515'
+, '0000579859'
+, '0000295730'
+, '0000380594'
+, '0000516439'
+, '0000297073'
+, '0000289258'
+, '0000323698'
+, '0000299505'
+, '0000400503'
+, '0000315155'
+, '0000285123'
+, '0000432804' -- same hh as 432804
+, '0000283064' -- same hh as 432804
+, '0000339599'
+, '0000283191'
+, '0000608644'
+)
+)
+
+
+/*
+, vendor_fy25_manual_adds as (
+select e.id_number
+      ,hh.household_id
+      ,'Y' as vendor_fy25_manual_adds
+from entity e
+Inner Join hh On hh.id_number = e.id_number
+where e.id_number in (
+)
+)*/
+
+
+, inactive_professional_list_tag as (
+select distinct hh.household_id
+               , listagg(mailing_list.xcomment, chr(13)) Within Group (order by mailing_list.xcomment) as xcomment
+               ,'Y' as inactive_professional_list_tag
+from mailing_list
+Inner Join  hh On hh.id_number = mailing_list.id_number
+where mailing_list.mail_list_code = 'KDHC' 
+and mailing_list.mail_list_status_code = 'I'
+and lower(mailing_list.xcomment) LIKE 'professional%'
+group by hh.household_id
+)
+
+
+
+, inactive_personalized_list_tag as (
+select distinct hh.household_id
+               , listagg(mailing_list.xcomment, chr(13)) Within Group (order by mailing_list.xcomment) as xcomment
+               ,'Y' as inactive_personalized_list_tag
+from mailing_list
+Inner Join  hh On hh.id_number = mailing_list.id_number
+where mailing_list.mail_list_code = 'KDHC' 
+and mailing_list.mail_list_status_code = 'I'
+and lower(mailing_list.xcomment) LIKE 'personalized%'
+group by hh.household_id
+)
+
+, not_reviewed_last_year as (
+select e.id_number
+      ,hh.household_id
+      ,'Y' as not_reviewed_last_year
+from entity e
+Inner Join hh On hh.id_number = e.id_number
+where e.id_number in (
+  '0000419323'
+, '0000391949'
+, '0000442437'
+, '0000374397'
+, '0000387848'
+, '0000329955'
+, '0000315316'
+, '0000389962'
+, '0000363393'
+, '0000390725'
+, '0000621600'
+, '0000288391'
+, '0000580671'
+, '0000693538'
+, '0000548102'
+, '0000368171'
+, '0000484379'
+, '0000282896'
+, '0000281860'
+, '0000370388'
+, '0000515741'
+, '0000281662'
+, '0000407580'
+, '0000401120'
+)
+)
+
+/*
+, generic_message as (
+select e.id_number
+      ,hh.household_id
+      ,'Y' as generic_message
+from entity e
+Inner Join hh On hh.id_number = e.id_number
+where e.id_number in (
+  '0000556769'
+, '0000301032'
+, '0000298818'
+, '0000469538'
+, '0000401254'
+, '0000422908'
+, '0000289974'
+, '0000335630'
+, '0000347976'
+, '0000371204'
+, '0000338604'
+, '0000408214'
+, '0000393167'
+, '0000284425'
+, '0000289872'
+, '0000286721'
+, '0000174698'
+, '0000368183'
+, '0000556508'
+, '0000399165'
+, '0000300411'
+, '0000290091'
+, '0000340638'
+, '0000550246'
+, '0000390561'
+, '0000500970'
+, '0000246107'
+, '0000642090'
+, '0000738581'
+, '0000342613'
+, '0000325625'
+, '0000282370'
+, '0000194954'
+, '0000370696'
+, '0000441226'
+, '0000309198'
+, '0000422025'
+, '0000421629'
+, '0000469447'
+, '0000565215'
+, '0000484316'
+, '0000578543'
+, '0000398754'
+, '0000420346'
+, '0000516441'
+, '0000547854'
+, '0000339672'
+, '0000336938'
+, '0000282909'
+, '0000334687'
+, '0000298373'
+, '0000132740'
+, '0000433433'
+, '0000066274'
+, '0000292096'
+, '0000331685'
+, '0000343901'
+, '0000393348'
+, '0000284120'
+, '0000609327'
+, '0000646184'
+, '0000397139'
+, '0000285470'
+, '0000371305'
+, '0000475869'
+, '0000402368'
+, '0000373134'
+, '0000501624'
+, '0000419074'
+, '0000517455'
+, '0000391452'
+, '0000314248'
+, '0000404397'
+, '0000733887'
+, '0000251343'
+, '0000368662'
+, '0000295014'
+, '0000289181'
+, '0000442251'
+, '0000516180'
+, '0000393838'
+, '0000289821'
+, '0000385216'
+, '0000363665'
+, '0000290901'
+, '0000350521'
+, '0000758411'
+, '0000439431'
+, '0000335845'
+, '0000298115'
+, '0000405865'
+, '0000146394'
+, '0000515974'
+, '0000467263'
+, '0000396575'
+, '0000516390'
+, '0000313455'
+, '0000289822'
+, '0000837036'
+, '0000633251'
+, '0000358370'
+, '0000330787'
+, '0000284921'
+, '0000432990'
+, '0000441661'
+, '0000420596'
+, '0000351587'
+, '0000366152'
+, '0000609747'
+, '0000355339'
+, '0000292069'
+, '0000311080'
+, '0000465808'
+, '0000622789'
+, '0000354142'
+, '0000077900'
+, '0000719523'
+, '0000286771'
+, '0000289282'
+, '0000200114'
+, '0000257348'
+, '0000367220'
+, '0000393350'
+, '0000419930'
+, '0000019254'
+, '0000320464'
+, '0000291445'
+, '0000350532'
+, '0000230319'
+, '0000838958'
+)
+)
+*/
+
+, last_gift as (
+Select
+  gfts.household_id
+  , min(gfts.tx_number) keep(dense_rank First Order By gfts.date_of_record Desc, gfts.tx_number Asc) As last_gift_tx_number
+  , min(gfts.date_of_record) keep(dense_rank First Order By gfts.date_of_record Desc, gfts.tx_number Asc) As last_gift_date
+  , min(gfts.fiscal_year) keep(dense_rank First Order By gfts.date_of_record Desc, gfts.tx_number Asc) As last_gift_fiscal_year
+  , min(gfts.transaction_type) keep(dense_rank First Order By gfts.date_of_record Desc, gfts.tx_number Asc) As last_gift_type
+  , min(gfts.allocation_code) keep(dense_rank First Order By gfts.date_of_record Desc, gfts.tx_number Asc, gfts.alloc_short_name Asc) As last_gift_alloc_code
+  , min(gfts.alloc_short_name) keep(dense_rank First Order By gfts.date_of_record Desc, gfts.tx_number Asc, gfts.alloc_short_name Asc) As last_gift_alloc
+  , min(gfts.cru_flag) keep(dense_rank First Order By gfts.date_of_record Desc, gfts.tx_number Asc, gfts.alloc_short_name Asc) As last_gift_current_use
+  , sum(gfts.hh_recognition_credit) keep(dense_rank First Order By gfts.date_of_record Desc, gfts.tx_number Asc) As last_gift_recognition_credit
+From rpt_pbh634.v_ksm_giving_trans_hh gfts
+Where gfts.tx_gypm_ind In ('G', 'Y', 'P')
+Group By gfts.household_id
+)
+
+, family as (
+ Select f.*
+From rpt_pbh634.v_entity_relationships_summary f
+Inner Join hh On hh.id_number = f.id_number
+)
+
+
+
+, dean_salutation as (
+select ds.*
+from rpt_zrc8929.v_dean_salutation ds
+Inner Join hh On hh.id_number = ds.id_number
+)
+
+, lgo_and_pm as (
+select id_number 
+       ,prospect_manager
+       ,lgos
+from rpt_pbh634.v_assignment_summary       
+)
+
+-- inner join household id
+, special_handling as (
+Select Distinct hh.id_number -- do I use household_id or id_number?
+     ,hh.household_id -- should I remove this?
+     ,sh.special_handling_concat
+     ,sh_spouse.special_handling_concat as spouse_special_handling_concat
+     ,sh.No_contact
+     ,sh_spouse.No_contact as spouse_No_contact
+     ,sh.NO_Mail_IND
+     ,sh_spouse.NO_Mail_IND as spouse_NO_Mail_IND
+     ,sh.NO_EMail_IND 
+     ,sh_spouse.NO_EMail_IND as spouse_NO_EMail_IND
+from hh
+Left Join rpt_pbh634.v_entity_special_handling sh On sh.id_number = hh.household_id
+Left Join rpt_pbh634.v_entity_special_handling sh_spouse on sh_spouse.id_number = hh.household_spouse_id
+)
+
+, PrefAddress AS( 
+      Select
+         a.Id_number
+      ,  tms_addr_status.short_desc AS Address_Status
+      ,  tms_address_type.short_desc AS Address_Type
+      ,  a.addr_pref_ind
+      ,  a.company_name_1
+      ,  a.company_name_2
+      ,  a.street1
+      ,  a.street2
+      ,  a.street3
+      ,  a.foreign_cityzip
+      ,  a.city
+      ,  a.state_code
+      ,  a.zipcode
+      ,  tms_country.short_desc AS Country
+      FROM address a
+      INNER JOIN tms_addr_status ON tms_addr_status.addr_status_code = a.addr_status_code
+      LEFT JOIN tms_address_type ON tms_address_type.addr_type_code = a.addr_type_code
+      LEFT JOIN tms_country ON tms_country.country_code = a.country_code
+      WHERE a.addr_pref_IND = 'Y'
+      AND a.addr_status_code IN('A','K')
+)
+
+
+, Seas_Address AS(
+      SELECT *
+      FROM rpt_dgz654.v_seasonal_addr SA
+      WHERE CURRENT_DATE
+        BETWEEN SA.real_start_date1 AND SA.real_stop_date1 
+        OR CURRENT_DATE BETWEEN SA.real_start_date2 AND SA.real_stop_date2
+)
+
+
+, HomeAddress AS( 
+      Select
+         a.Id_number
+      ,  tms_addr_status.short_desc AS Address_Status
+      ,  tms_address_type.short_desc AS Address_Type
+      ,  a.addr_pref_ind
+      ,  a.street1
+      ,  a.street2
+      ,  a.street3
+      ,  a.foreign_cityzip
+      ,  a.city
+      ,  a.state_code
+      ,  a.zipcode
+      ,  tms_country.short_desc AS Country
+      FROM address a
+      INNER JOIN tms_addr_status ON tms_addr_status.addr_status_code = a.addr_status_code
+      LEFT JOIN tms_address_type ON tms_address_type.addr_type_code = a.addr_type_code
+      LEFT JOIN tms_country ON tms_country.country_code = a.country_code
+      WHERE a.addr_type_code = 'H'
+      AND a.addr_status_code IN('A','K')
+)
+
+, last_visit as (
+Select hh.household_id
+     , max(crf.contact_date) keep(dense_rank First Order By contact_date Desc) as last_visit_date_cfy_pfy1
+     , max(crf.description) keep(dense_rank First Order By contact_date Desc) as last_visit_desc_cfy_pfy1
+     , max(crf.summary) keep(dense_rank First Order By contact_date Desc) as last_visit_summary_cfy_pfy1
+From rpt_pbh634.v_contact_reports_fast crf
+Inner Join hh On crf.id_number = hh.id_number
+Where crf.credited = '0000804796'
+and crf.contact_type IN ('Visit')
+AND crf.fiscal_year in ('2025')
+Group By hh.household_id
+)
+
+, last_event as (
+Select hh.household_id
+     , max(crf.contact_date) keep(dense_rank First Order By contact_date Desc) as last_event_date_cfy_pfy1
+     , max(crf.description) keep(dense_rank First Order By contact_date Desc) as last_event_desc_cfy_pfy1
+     , max(crf.summary) keep(dense_rank First Order By contact_date Desc) as last_event_summary_cfy_pfy1
+From rpt_pbh634.v_contact_reports_fast crf
+Inner Join hh On crf.id_number = hh.id_number
+Where crf.credited = '0000804796'
+and crf.contact_type IN ('Event')
+AND crf.fiscal_year in ('2025')
+Group By hh.household_id
+)
+
+, inactive_fy23 as (
+select hh.household_id
+      ,start_dt
+      ,stop_dt
+      ,xcomment as inactive_fy23_xcomment
+      ,'Y' as inactive_fy23_tag
+from mailing_list
+Inner Join rpt_pbh634.v_entity_ksm_households_fast hh On hh.id_number = mailing_list.id_number
+where mailing_list.mail_list_code = 'KDHC' 
+and mailing_list.mail_list_status_code = 'I' 
+and (lower(mailing_list.xcomment) LIKE 'personalized%'
+or lower(mailing_list.xcomment) LIKE 'professional%')
+and mailing_list.start_dt >= 20220901
+and mailing_list.stop_dt <= 20230831
+and lower(mailing_list.xcomment) NOT LIKE '%inactivated%'
+)
+
+, inactive_fy22 as (
+select hh.household_id
+      ,listagg(start_dt, chr(13)) Within Group (order by start_dt) as inactive_fy22_start_dt
+      ,listagg(stop_dt, chr(13)) Within Group (order by start_dt) as inactive_fy22_stop_dt
+      ,listagg(xcomment, chr(13)) Within Group (order by start_dt) as inactive_fy22_xcomment
+      ,'Y' as inactive_fy22_tag
+from mailing_list
+Inner Join rpt_pbh634.v_entity_ksm_households_fast hh On hh.id_number = mailing_list.id_number
+where mailing_list.mail_list_code = 'KDHC' 
+and mailing_list.mail_list_status_code = 'I' 
+and (lower(mailing_list.xcomment) LIKE 'personalized%'
+or lower (mailing_list.xcomment) LIKE 'professional%')
+and mailing_list.stop_dt <= 20220831
+and lower(mailing_list.xcomment) NOT LIKE '%inactivated%'
+group by hh.household_id
+)
+
+/*
+, inactive_fy23 as (
+select hh.household_id
+      ,start_dt
+      ,stop_dt
+      ,xcomment as inactive_fy23_xcomment
+      ,'Y' as inactive_fy23_tag
+from mailing_list
+Inner Join rpt_pbh634.v_entity_ksm_households_fast hh On hh.id_number = mailing_list.id_number
+where mailing_list.mail_list_code = 'KDHC' 
+and mailing_list.mail_list_status_code = 'I' 
+and (lower(mailing_list.xcomment) LIKE 'personalized%'
+or lower (mailing_list.xcomment) LIKE 'professional%')
+and mailing_list.start_dt >= 20220901
+and mailing_list.stop_dt <= 20230831
+)
+*/
+
+, employ As (
+  Select id_number
+  , job_title
+  , employment.fld_of_work_code
+  , fow.short_desc As fld_of_work
+  , employer_name1,
+    -- If there's an employer ID filled in, use the entity name
+    Case
+      When employer_id_number Is Not Null And employer_id_number != ' ' Then (
+        Select pref_mail_name
+        From entity
+        Where id_number = employer_id_number)
+      -- Otherwise use the write-in field
+      Else trim(employer_name1 || ' ' || employer_name2)
+    End As employer_name
+  From employment
+  Left Join tms_fld_of_work fow On fow.fld_of_work_code = employment.fld_of_work_code
+  Where employment.primary_emp_ind = 'Y'
+  )
+  
+  , pref_email AS (
+SELECT email.id_number
+      ,email.email_address
+FROM email
+WHERE email.email_status_code = 'A'
+AND email.preferred_IND = 'Y'
+)
+
+, Brazil_Event as ( -- **** remove once added in CRs
+select distinct hh.household_id
+      ,'Y' as Brazil_Event
+from entity e
+inner join hh on e.id_number = hh.id_number
+where e.id_number in (
+'0000442433'
+,'0000305795'
+,'0000515901'
+,'0000433453'
+,'0000706844'
+,'0000733459'
+,'0000784218'
+,'0000819042'
+,'0000646846'
+,'0000897273'
+,'0000479895'
+,'0000822159'
+,'0000831299'
+,'0000146271'
+,'0000665837'
+,'0000722804'
+,'0000823186'
+,'0000801750'
+,'0000872987'
+,'0000501512'
+,'0000708083'
+,'0000762744'
+,'0000873153'
+,'0000897351'
+,'0000708933'
+,'0000873142'
+,'0000822316'
+,'0000902468'
+,'0000501705'
+,'0000784001'
+,'0000762738'
+,'0000282520'
+,'0000861890'
+,'0000442434'
+,'0000708189'
+,'0000706959'
+,'0000564126'
+,'0000580153'
+,'0000532441'
+,'0000784681'
+,'0000873237'
+,'0000813586'
+,'0000469415'
+,'0000665892'
+,'0000665532'
+,'0000649752'
+,'0000822212'
+,'0000650188'
+,'0000873281'
+,'0000708201'
+,'0000865112'
+,'0000469179'
+,'0000848785'
+,'0000532440'
+,'0000900877'
+,'0000847300'
+,'0000873253'
+,'0000418746'
+,'0000500847'
+)
+)
+
+
+, final_data as (
+select distinct e.id_number AS Household_ID
+       ,e.last_name -- using this column for ordering data, delete column manually in excel
+       ,case when e.id_number = '0000371305' then 'Larry'
+             when e.id_number = '0000548536' then 'Kent and Becky'
+             when e.id_number = '0000404510' then 'Tom'
+             when e.id_number = '0000298373' then 'Al'
+               else dean_salutation.Joint_Dean_Salut end as Joint_Dean_Salut
+       ,case when e.id_number = '0000371305' then 'Mr. Larry W. Gies'
+             when e.id_number = '0000548536' then 'Mr. Peter Kent Hawryluk and Ms. Becky Yuan'
+             when e.id_number = '0000404510' then 'Mr. Thomas K. Montag'
+             when e.id_number = '0000298373' then 'Mr. Alan Kenneth Warms'
+               else dean_salutation.Joint_Prefname end as Joint_Prefname
+       ,e.pref_mail_name
+       ,dean_salutation.p_dean_salut
+       ,e.record_status_code as record_status
+       ,d.degrees_concat
+       ,e.institutional_suffix
+       ,e.gender_code
+       ,family.spouse_id_number
+       ,case when e.id_number = '0000371305' then ''
+             when e.id_number = '0000548536' then 'Ms. Becky Yuan'
+             when e.id_number = '0000404510' then ''
+             when e.id_number = '0000298373' then ''
+               else family.spouse_name end as pref_spouse_name
+       ,case when e.id_number = '0000371305' then ''
+             when e.id_number = '0000548536' then 'Becky'
+             when e.id_number = '0000404510' then ''
+             when e.id_number = '0000298373' then ''
+               else dean_salutation.spouse_dean_salut end as spouse_dean_salut
+       ,es.record_status_code as spouse_record_status
+       ,ds.degrees_concat as spouse_degrees_concat
+       ,es.institutional_suffix as spouse_institutional_suffix
+       ,es.gender_code as spouse_gender_code
+--       ,family.child_id_numbers (comment out for comparing against old code)
+       ,family.child_names
+       ,family.child_institutional_suffixes
+       ,family.grandchild_names
+       ,family.grandchild_inst_suffixes
+       ,employ.job_title
+       ,employ.employer_name     
+       ,lgo_and_pm.prospect_manager
+       ,lgo_and_pm.lgos
+       ,pref_email.email_address
+         ,Case
+     When SA.ADDRESS_TYPE = 'Seasonal' Then 'Seasonal'
+     When PA.Address_type IS NOT Null Then 'Preferred'
+     Else Null
+       End Addr_Type
+  ,Case
+     When SA.ADDRESS_TYPE = 'Seasonal' Then SA.Company_Name_1
+     When PA.Address_type IS NOT Null Then PA.Company_Name_1
+     Else Null
+       End Company_Name_1
+   ,Case
+     When SA.ADDRESS_TYPE = 'Seasonal' Then SA.Company_Name_2
+     When PA.Address_type IS NOT Null Then PA.Company_Name_2
+     Else Null
+       End Company_Name_2
+   ,Case
+     When SA.ADDRESS_TYPE = 'Seasonal' Then SA.Street1
+     When PA.Address_type IS NOT Null Then PA.Street1
+     Else Null
+       End Street1
+   ,Case
+     When SA.ADDRESS_TYPE = 'Seasonal' Then SA.Street2
+     When PA.Address_type IS NOT Null Then PA.Street2
+     Else Null
+       End Street2
+   ,Case
+     When SA.ADDRESS_TYPE = 'Seasonal' Then SA.Street3
+     When PA.Address_type IS NOT Null Then PA.Street3
+     Else Null
+       End Street3
+   ,Case
+     When SA.ADDRESS_TYPE = 'Seasonal' Then SA.Foreign_Cityzip
+     When PA.Address_type IS NOT Null Then PA.Foreign_Cityzip
+     Else Null
+       End Foreign_Zipcode
+   ,Case
+     When SA.ADDRESS_TYPE = 'Seasonal' Then SA.City
+     When PA.Address_type IS NOT Null Then PA.City
+     Else Null
+       End City
+  ,Case
+     When SA.ADDRESS_TYPE = 'Seasonal' Then SA.State_Code
+     When PA.Address_type IS NOT Null Then PA.State_Code
+     Else Null
+       End State
+  ,Case
+     When SA.ADDRESS_TYPE = 'Seasonal' Then SA.Zipcode
+     When PA.Address_type IS NOT Null Then PA.Zipcode
+     Else Null
+       End Zipcode
+  ,Case
+     When SA.ADDRESS_TYPE = 'Seasonal' Then SA.Country
+     When PA.Address_type IS NOT Null Then PA.Country
+     Else Null
+       End Country
+  ,Case
+     When SA.ADDRESS_TYPE = 'Seasonal' and SA.Country is not null Then 'Y'
+     When PA.Address_type IS NOT Null and PA.Country is not null Then 'Y'
+     Else 'N'
+       End International_Flag     
+       ,HA.address_type AS home_address_type
+       ,HA.street1 AS home_street1
+       ,HA.street2 AS home_street2
+       ,HA.street3 AS home_street3
+       ,HA.foreign_cityzip AS home_foreign_cityzip
+       ,HA.city AS home_city
+       ,HA.state_code AS home_state_code
+       ,HA.zipcode AS home_zipcode
+       ,HA.country AS home_country 
+       ,case when HA.country is not null then 'Y' else 'N' end as home_international_flag
+       ,sh.special_handling_concat
+       ,sh.spouse_special_handling_concat
+       ,sh.No_contact
+       ,sh.spouse_No_contact
+       ,sh.NO_Mail_IND
+       ,sh.spouse_NO_Mail_IND
+       ,case when sh.No_contact = 'Y' then 'Y'
+             when sh.spouse_No_contact = 'Y' then 'Y'
+             when sh.NO_Mail_IND = 'Y' then 'Y'
+             when sh.spouse_NO_Mail_IND = 'Y' then 'Y'
+             when e.record_status_code = 'L' then 'Y'
+               else '' end as no_contact_no_mail_or_lost
+       ,GAB.GAB
+       ,BOT_AND_ALUMNI
+       ,CSM.CSM
+       ,Executive_Board_for_Asia.Executive_Board_for_Asia
+       ,dfc_visit_cfy_pfy1.dfc_visit_cfy_pfy1
+       ,dfc_visit_any_year.dfc_visit_any_year
+       ,KLC.KLC
+       ,planned_gift_donor.planned_gift_donor
+       ,KAC.KAC
+       ,PEVC.PEVC
+       ,Asia_PEVC.Asia_PEVC
+       ,MBAi.MBAi
+       ,healthcare.healthcare
+       ,RealEstate.RealEstate
+       ,AMP.AMP
+       ,PHS.PHS
+       ,event_attendee.event_attendee
+       ,ngc_100K_2008_to_present.ngc_100K_2008_to_present
+       ,ngc_1M_2008_to_present
+       ,Club_Leaders.Club_Leaders
+       ,Young_Alumni_Board.Young_Alumni_Board
+       ,tech_council.tech_council
+       ,KFN_Associate.KFN_Associate
+       ,Brazil_Event.Brazil_Event
+       -- Big concatenated flag section
+       , Case When GAB.GAB Is Not Null Then 'GAB, ' End ||
+         Case When BOT_AND_ALUMNI Is Not Null Then 'BOT & alumni, ' End ||
+         Case When CSM.CSM Is Not Null Then 'Cornerstone, ' End ||
+         Case When Executive_Board_for_Asia.Executive_Board_for_Asia Is Not Null Then 'EBfA, ' End ||
+         Case When dfc_visit_cfy_pfy1.dfc_visit_cfy_pfy1 Is Not Null Then 'DFC visit FY24-25, ' End ||
+         --Case When dfc_visit_any_year.dfc_visit_any_year Is Not Null Then 'DFC visit any year, ' End ||
+         Case When KLC.KLC Is Not Null Then 'KLC, ' End ||
+         Case When planned_gift_donor.planned_gift_donor Is Not Null Then 'Planned gift donor, ' End ||
+         Case When KAC.KAC Is Not Null Then 'KAC, ' End ||
+         Case When PEVC.PEVC Is Not Null Then 'PEVC, ' End ||  
+         Case When Asia_PEVC.Asia_PEVC Is Not Null Then 'Asia PEVC, ' End ||
+         Case When MBAi.MBAi Is Not Null Then 'MBAi, ' End ||
+         Case When healthcare.healthcare Is Not Null Then 'Healthcare, ' End ||
+         Case When RealEstate.RealEstate Is Not Null Then 'Real Estate, ' End ||
+         Case When AMP.AMP Is Not Null Then 'AMP, ' End ||
+         Case When PHS.PHS Is Not Null Then 'PHS, ' End ||
+         Case When event_attendee.event_attendee Is Not Null Then 'Event attendee, ' End ||
+         Case When ngc_100K_2008_to_present.ngc_100K_2008_to_present Is Not Null Then 'NGC 100K 2008 to present, ' End ||
+         Case When ngc_1M_2008_to_present Is Not Null Then 'NGC 1M 2008 to present, ' End ||
+         Case When Club_Leaders.Club_Leaders Is Not Null Then 'Club Leaders, ' End ||
+         Case When Young_Alumni_Board.Young_Alumni_Board Is Not Null Then 'Young Alumni Board, ' End ||
+         Case When tech_council.tech_council Is Not Null Then 'Tech Council, ' End ||
+         Case When Brazil_Event.Brazil_Event Is Not Null Then 'Brazil Event, ' End || -- **** remove once added in CRs
+         Case When KFN_Associate.KFN_Associate Is Not Null Then 'KFN Associate, ' End
+       As flags_concatenated
+       ,Professional_list_Recipient.Professional_list_Recipient as active_professional_list_tag
+       ,Professional_fy25_manual_adds.Professional_fy25_manual_adds
+       ,Professional_list_Recipient.xcomment as professional_xcomment
+       ,case when Professional_list_Recipient.Professional_list_Recipient = 'Y' 
+             or Personalized_list_Recipient.Personalized_list_Recipient = 'Y' 
+                then '' else inactive_professional_list_tag.inactive_professional_list_tag 
+                   end as inactive_professional_list_tag
+       ,case when Professional_list_Recipient.Professional_list_Recipient = 'Y' 
+             or Personalized_list_Recipient.Personalized_list_Recipient = 'Y'
+                then '' else inactive_professional_list_tag.xcomment 
+                  end as inactive_professional_xcomment
+       ,Personalized_list_Recipient.Personalized_list_Recipient as active_personalized_list_tag
+       ,personalized_fy25_manual_adds.personalized_fy25_manual_adds
+       ,Personalized_list_Recipient.xcomment as personalized_xcomment
+       ,case when Personalized_list_Recipient.Personalized_list_Recipient = 'Y' 
+             or Professional_list_Recipient.Professional_list_Recipient = 'Y' 
+                then '' else inactive_personalized_list_tag.inactive_personalized_list_tag 
+                  end as inactive_personalized_list_tag
+       ,case when Personalized_list_Recipient.Personalized_list_Recipient = 'Y' 
+             or Professional_list_Recipient.Professional_list_Recipient = 'Y' 
+                then '' else inactive_personalized_list_tag.xcomment 
+                  end as inactive_personalized_xcomment
+       ,Vendor_list_Recipient.Vendor_list_Recipient as active_vendor_list_tag
+--       ,vendor_fy25_manual_adds.vendor_fy25_manual_adds
+       ,Vendor_list_Recipient.xcomment as vondor_xcomment
+       ,last_gift.last_gift_fiscal_year
+       ,case when last_gift.last_gift_fiscal_year <= 2018 then 'Y' end as last_gift_before_dfc
+       ,not_reviewed_last_year.not_reviewed_last_year
+       ,case when (
+                    inactive_professional_list_tag.inactive_professional_list_tag = 'Y'
+                 or inactive_personalized_list_tag.inactive_personalized_list_tag = 'Y'
+                 or dfc_visit_any_year.dfc_visit_any_year = 'Y'
+                 or event_attendee.event_attendee = 'Y'
+                 or CSM.CSM = 'Y'
+                 or GAB.GAB = 'Y'
+                 or BOT_AND_ALUMNI.BOT_AND_ALUMNI = 'Y'
+                 or ngc_1M_2008_to_present.ngc_1M_2008_to_present = 'Y'
+                 or Executive_Board_for_Asia.Executive_Board_for_Asia = 'Y'
+                 or Young_Alumni_Board.Young_Alumni_Board = 'Y'
+                 )
+                 and (
+                 Professional_list_Recipient.Professional_list_Recipient IS NULL
+                 and Personalized_list_Recipient.Personalized_list_Recipient IS NULL
+                     )
+                 then 'Y' end as new_professional_personalized
+       ,case when (
+                    Professional_list_Recipient.Professional_list_Recipient IS NULL
+                 and Personalized_list_Recipient.Personalized_list_Recipient IS NULL
+                 and dfc_visit_any_year.dfc_visit_any_year IS NULL
+                 and event_attendee.event_attendee IS NULL
+                 and CSM.CSM IS NULL
+                 and GAB.GAB IS NULL
+                 and BOT_AND_ALUMNI.BOT_AND_ALUMNI IS NULL
+                 and ngc_1M_2008_to_present.ngc_1M_2008_to_present IS NULL
+                 and Executive_Board_for_Asia.Executive_Board_for_Asia IS NULL
+                 and Young_Alumni_Board.Young_Alumni_Board IS NULL
+                 )
+                 and (
+                 inactive_professional_list_tag.inactive_professional_list_tag = 'Y'
+                 or inactive_personalized_list_tag.inactive_personalized_list_tag = 'Y'
+                     )
+                 then 'Y' end as inactive_prof_personalize_only
+--       ,generic_message.generic_message            
+       , case when hh.household_id in ('0000835817' -- start of fy24 manual adds
+                                      ,'0000341952'
+                                      ,'0000231196'
+                                      ,'0000391949'
+                                      ,'0000285466'
+                                      , '0000407925'
+                                      , '0000335714'
+                                      , '0000838958'
+                                      , '0000291445'
+                                      , '0000565215'
+                                      , '0000037314'
+                                      , '0000401254'
+                                      , '0000441780'
+                                      , '0000298779'
+                                      , '0000574692'
+                                      , '0000466841'
+                                      , '0000419930'
+                                      , '0000410211'
+                                      , '0000355339'
+                                      , '0000467263'
+                                      , '0000385216'
+                                      , '0000390561'
+                                      , '0000564797'
+                                      , '0000732190'
+                                      , '0000419074'
+                                      , '0000286771'
+                                      , '0000622789'
+                                      , '0000257348'
+                                      , '0000580624'
+                                      , '0000366152'
+                                      , '0000340638'
+                                      , '0000758411'
+                                      , '0000295014'
+                                      , '0000382467'
+                                      , '0000550246'
+                                      , '0000368662'
+                                      , '0000762658'
+                                      , '0000465808'
+                                      , '0000609327'
+                                      , '0000548078'
+                                      , '0000633251'
+                                      , '0000516180'
+                                      , '0000290901'
+                                      , '0000432990'
+                                      , '0000363665'
+                                      , '0000330787'
+                                      , '0000517455'
+                                      , '0000451756'
+                                      , '0000569356'
+                                      -- start of fy25 manual adds
+                                      , '0000326939'
+                                      , '0000365769'
+                                      , '0000136402'
+                                      , '0000174695'
+                                      , '0000502328'
+                                      , '0000176165'
+                                      , '0000196881'
+                                      , '0000355328'
+                                      , '0000442360'
+                                      , '0000564566'
+                                      , '0000433781'
+                                      , '0000389064'
+                                      , '0000317397'
+                                      , '0000501063'
+                                      , '0000671910'
+                                      , '0000501561'
+                                      , '0000334380'
+                                      , '0000432818'
+                                      , '0000308676'
+                                      , '0000442312'
+                                      , '0000302359'
+                                      , '0000141762'
+                                      , '0000114816'
+                                      , '0000491737'
+                                      , '0000500805'
+                                      , '0000422274'
+                                      , '0000531778'
+                                      , '0000419424'
+                                      , '0000282506'
+                                      , '0000304184'
+                                      , '0000185857'
+                                      , '0000484503'
+                                      , '0000135509'
+                                      , '0000408757'
+                                      , '0000335617'
+                                      , '0000532520'
+                                      , '0000469548'
+                                      , '0000295867'
+                                      , '0000133213'
+                                      , '0000565041'
+                                      , '0000389962'
+                                      , '0000377335'
+                                      , '0000501221'
+                                      , '0000779699'
+                                      , '0000782824'
+                                      , '0000484316'
+                                      , '0000336647'
+                                      , '0000398193'
+                                      , '0000533154'
+                                      , '0000285325'
+                                      , '0000501679'
+                                      , '0000398564'
+                                      , '0000373824'
+                                      , '0000402160'
+                                      , '0000515741'
+                                      , '0000433019'
+                                      , '0000428528'
+                                      , '0000565080'
+                                      , '0000311058'
+                                      , '0000354647'
+                                      , '0000289491'
+                                      , '0000476419'
+                                      , '0000439393'
+                                      , '0000479895'
+                                      , '0000665837'
+                                      , '0000722804'
+                                      , '0000824572'
+                                      , '0000380594'
+                                      , '0000297073'
+                                      , '0000580153'
+                                      , '0000285123'
+                                      , '0000784681'
+                                      , '0000438577'
+                                      , '0000532440'
+                                      , '0000516439'
+                                      , '0000418746'
+                                      , '0000299505'
+                                      , '0000390719'
+                                      
+                                      ) then 'vendor'
+       when Professional_list_Recipient.Professional_list_Recipient = 'Y' then 'professional'
+--         when inactive_professional_list_tag.inactive_professional_list_tag = 'Y' then 'professional'
+         when Professional_fy25_manual_adds.Professional_fy25_manual_adds = 'Y' then 'professional'
+           when Personalized_list_Recipient.Personalized_list_Recipient = 'Y' then 'personalized'
+--             when inactive_personalized_list_tag.inactive_personalized_list_tag = 'Y' then 'personalized'
+             when personalized_fy25_manual_adds.personalized_fy25_manual_adds = 'Y' then 'personalized'
+              when dfc_visit_cfy_pfy1.dfc_visit_cfy_pfy1 = 'Y' then 'personalized'
+                when Brazil_Event.Brazil_event = 'Y' then 'personalized' -- **** remove once added in CRs
+                when event_attendee.event_attendee = 'Y' then 'personalized'
+                  when CSM.CSM = 'Y' then 'personalized'
+                    when GAB.GAB = 'Y' then 'personalized'
+                      when BOT_AND_ALUMNI.BOT_AND_ALUMNI = 'Y' then 'personalized'
+                        when ngc_1M_2008_to_present.ngc_1M_2008_to_present = 'Y' then 'personalized'
+                         when Executive_Board_for_Asia.Executive_Board_for_Asia = 'Y' then 'personalized' 
+                           --when Young_Alumni_Board.Young_Alumni_Board = 'Y' then 'personalized'
+                           when Vendor_list_Recipient.Vendor_list_Recipient = 'Y' then 'vendor'
+--                           when vendor_fy25_manual_adds.vendor_fy25_manual_adds = 'Y' then 'vendor'
+                               else 'vendor' end as recipient_segment
+       ,lv.last_visit_date_cfy_pfy1
+       ,lv.last_visit_desc_cfy_pfy1
+--     ,lv.last_visit_summary_cfy_pfy1
+       ,le.last_event_date_cfy_pfy1
+       ,le.last_event_desc_cfy_pfy1
+--     ,le.last_event_summary_cfy_pfy1
+       ,inactive_fy23.inactive_fy23_xcomment
+       ,inactive_fy23.inactive_fy23_tag
+       ,inactive_fy22.inactive_fy22_xcomment
+       ,inactive_fy22.inactive_fy22_tag
+                               
+FROM HH
+INNER JOIN Entity E ON hh.household_id = E.ID_Number 
+LEFT JOIN GAB ON hh.household_id = gab.household_id 
+LEFT JOIN BOT_AND_ALUMNI ON hh.household_id = bot_and_alumni.household_id  
+LEFT JOIN CSM ON hh.household_id = csm.household_id  
+LEFT JOIN Executive_Board_for_Asia ON hh.household_id = Executive_Board_for_Asia.household_id  
+LEFT JOIN dfc_visit_any_year ON hh.household_id = dfc_visit_any_year.household_id 
+LEFT JOIN dfc_visit_cfy_pfy1 ON hh.household_id = dfc_visit_cfy_pfy1.household_id
+LEFT JOIN KLC ON hh.household_id = klc.household_id 
+LEFT JOIN planned_gift_donor on hh.household_id = planned_gift_donor.household_id 
+LEFT JOIN KAC ON hh.household_id = KAC.household_id 
+LEFT JOIN PEVC ON hh.household_id = PEVC.household_id  
+LEFT JOIN MBAi ON hh.household_id = MBAi.household_id  
+LEFT JOIN healthcare ON hh.household_id = healthcare.household_id  
+LEFT JOIN RealEstate ON hh.household_id = RealEstate.household_id  
+LEFT JOIN AMP ON hh.household_id = AMP.household_id  
+LEFT JOIN PHS on hh.household_id = PHS.household_id  
+LEFT JOIN event_attendee on hh.household_id = event_attendee.household_id  
+LEFT JOIN ngc_100K_2008_to_present on hh.household_id = ngc_100K_2008_to_present.household_id 
+LEFT JOIN ngc_1M_2008_to_present on hh.household_id = ngc_1M_2008_to_present.household_id
+LEFT JOIN Asia_PEVC on hh.household_id = Asia_PEVC.household_id 
+LEFT JOIN Club_Leaders on hh.household_id = Club_Leaders.household_id 
+LEFT JOIN Young_Alumni_Board on hh.household_id = Young_Alumni_Board.household_id 
+LEFT JOIN tech_council on hh.household_id = tech_council.household_id
+LEFT JOIN KFN_Associate on hh.household_id = KFN_Associate.household_id
+LEFT JOIN Professional_list_Recipient on hh.household_id = Professional_list_Recipient.household_id 
+LEFT JOIN Personalized_list_Recipient on hh.household_id = Personalized_list_Recipient.household_id 
+LEFT JOIN Vendor_list_Recipient on hh.household_id = Vendor_list_Recipient.household_id 
+LEFT JOIN Professional_fy25_manual_adds on hh.household_id = Professional_fy25_manual_adds.household_id 
+LEFT JOIN personalized_fy25_manual_adds on hh.household_id = personalized_fy25_manual_adds.household_id 
+--LEFT JOIN vendor_fy25_manual_adds on hh.household_id = vendor_fy25_manual_adds.household_id 
+LEFT JOIN inactive_professional_list_tag on hh.household_id = inactive_professional_list_tag.household_id 
+LEFT JOIN inactive_personalized_list_tag on hh.household_id = inactive_personalized_list_tag.household_id 
+--LEFT JOIN generic_message on hh.household_id = generic_message.household_id 
+LEFT JOIN last_gift on hh.household_id = last_gift.household_id 
+LEFT JOIN not_reviewed_last_year on hh.household_id = not_reviewed_last_year.household_id
+LEFT JOIN PrefAddress PA ON hh.household_id = PA.id_number
+LEFT JOIN Seas_Address SA ON hh.household_id = SA.id_number
+LEFT JOIN HomeAddress HA ON hh.household_id = HA.id_number
+LEFT JOIN family ON hh.household_id = family.ID_Number
+LEFT JOIN dean_salutation ON hh.household_id = dean_salutation.ID_Number 
+LEFT JOIN lgo_and_pm ON hh.household_id = lgo_and_pm.ID_Number 
+LEFT JOIN special_handling sh ON hh.household_id = sh.ID_Number
+LEFT JOIN RPT_PBH634.v_Entity_Ksm_Degrees d on hh.household_id = d.ID_Number
+LEFT JOIN RPT_PBH634.v_Entity_Ksm_Degrees ds on family.spouse_id_number = ds.id_number -- is this the best way to join spouse info?
+LEFT JOIN entity es on family.spouse_id_number = es.id_number -- is this the best way to join spouse info
+left join last_visit lv on hh.household_id = lv.household_id
+left join last_event le on hh.household_id = le.household_id
+left join inactive_fy23 on hh.household_id = inactive_fy23.household_id
+left join inactive_fy22 on hh.household_id = inactive_fy22.household_id
+left join employ on hh.household_id = employ.id_number
+left join pref_email on hh.household_id = pref_email.id_number
+left join Brazil_Event on hh.household_id = Brazil_Event.household_id -- **** remove once added in CRs
+WHERE e.person_or_org = 'P'
+AND e.record_status_code <> 'D' 
+AND (
+GAB.GAB = 'Y'
+OR BOT_AND_ALUMNI = 'Y'
+OR CSM.CSM = 'Y'
+OR Executive_Board_for_Asia.Executive_Board_for_Asia = 'Y'
+OR dfc_visit_cfy_pfy1.dfc_visit_cfy_pfy1 = 'Y'
+OR KLC.KLC = 'Y'
+OR planned_gift_donor.planned_gift_donor = 'Y'
+OR KAC.KAC = 'Y'
+OR PEVC.PEVC = 'Y'
+OR MBAi.MBAi = 'Y'
+OR healthcare.healthcare = 'Y'
+OR RealEstate.RealEstate = 'Y'
+OR AMP.AMP = 'Y'
+OR PHS.PHS = 'Y'
+OR event_attendee.event_attendee = 'Y'
+OR ngc_100K_2008_to_present = 'Y'
+OR ngc_1M_2008_to_present = 'Y' -- don't need this condition but just being extra careful..
+OR Asia_PEVC.Asia_PEVC = 'Y'
+OR Club_Leaders.Club_Leaders = 'Y'
+OR Young_Alumni_Board.Young_Alumni_Board = 'Y'
+OR tech_council.tech_council = 'Y'
+OR KFN_Associate.KFN_Associate = 'Y'
+OR Professional_list_Recipient.Professional_list_Recipient = 'Y'
+OR Personalized_list_Recipient.Personalized_list_Recipient = 'Y'
+OR Vendor_list_Recipient.Vendor_list_Recipient = 'Y'
+OR Professional_fy25_manual_adds.Professional_fy25_manual_adds = 'Y'
+OR personalized_fy25_manual_adds.personalized_fy25_manual_adds = 'Y'
+--OR vendor_fy25_manual_adds.vendor_fy25_manual_adds = 'Y'
+--OR inactive_professional_list_tag.inactive_professional_list_tag = 'Y' -- MAKE SURE THIS CRITERIA IS OK
+--OR inactive_personalized_list_tag.inactive_personalized_list_tag = 'Y' -- MAKE SURE THIS CRITIERA IS OK 
+OR Brazil_Event.Brazil_Event = 'Y'
+)
+and e.id_number not in (
+ '0000138877' -- Combe --> should i include in vendor list?
+,'0000484797' -- Gund --> should i include in vendor list?
+,'0000633993' -- Craig Williams (contact report error) --> should i include in vendor list?
+,'0000625832' -- Figlio --> should i include in vendor list?
+,'0000630198' -- lori lightfoot --> should i include in vendor list?
+,'0000856622' -- update from liam
+,'0000225193' -- update from liam
+,'0000693899' -- update from liam
+,'0000874275' -- update from liam
+,'0000690630' -- update from liam
+-- start of fy25 manual removals
+, '0000516634'
+, '0000725129'
+, '0000330726'
+, '0000725519'
+, '0000903807'
+, '0000336735'
+, '0000871021'
+, '0000847470'
+, '0000900926'
+, '0000871213'
+, '0000871094'
+, '0000847041'
+, '0000864341'
+, '0000863025'
+, '0000846877'
+, '0000884607'
+, '0000884606'
+, '0000871116'
+, '0000871100'
+, '0000881362'
+, '0000884481'
+, '0000856679'
+, '0000445628'
+, '0000404787'
+, '0000352912'
+, '0000404787'
+, '0000856786'
+, '0000627960'
+, '0000442517'
+, '0000300412'
+, '0000319447'
+, '0000313470'
+, '0000301671'
+, '0000398044'
+, '0000665678'
+, '0000317920'
+, '0000595983'
+, '0000328703'
+, '0000822215'
+, '0000281936'
+, '0000484406'
+, '0000343865'
+, '0000725360'
+, '0000499636'
+, '0000297908'
+, '0000432965'
+, '0000547896'
+, '0000903949'
+, '0000843014'
+, '0000340229'
+, '0000432867'
+, '0000468852'
+, '0000784218'
+, '0000433453'
+, '0000706844'
+, '0000665892'
+, '0000902468'
+, '0000897351'
+, '0000897273'
+, '0000819042'
+, '0000146271'
+, '0000861890'
+, '0000820412'
+, '0000646846'
+, '0000665532'
+, '0000801750'
+, '0000872987'
+, '0000733459'
+, '0000501512'
+, '0000708083'
+, '0000762744'
+, '0000834161'
+, '0000822316'
+, '0000650188'
+, '0000501705'
+, '0000762738'
+, '0000282520'
+, '0000822212'
+, '0000708189'
+, '0000706959'
+, '0000564126'
+, '0000532441'
+, '0000873237'
+, '0000813586'
+, '0000469415'
+, '0000822159'
+, '0000873281'
+, '0000873142'
+, '0000865112'
+, '0000469179'
+, '0000848785'
+, '0000873153'
+, '0000784001'
+, '0000900877'
+, '0000847300'
+, '0000873253'
+, '0000649752'
+, '0000708933'
+, '0000500847'
+, '0000733388'
+, '0000297881'
+, '0000630421'
+)
+ORDER By e.last_name ASC
+)
+
+select final_data.* 
+     /* Household_ID
+      ,last_name
+      ,Joint_Dean_Salut
+      ,Joint_Prefname
+      ,degrees_concat
+      ,spouse_degrees_concat
+      ,child_names
+      ,child_institutional_suffixes
+      ,grandchild_names
+      ,grandchild_inst_suffixes
+      ,job_title
+      ,employer_name
+      ,State
+      ,Country
+      ,flags_concatenated
+      ,professional_xcomment
+      ,personalized_xcomment
+      ,inactive_fy23_xcomment
+      ,inactive_fy23_tag
+      ,inactive_fy22_xcomment
+      ,inactive_fy22_tag
+      ,last_gift_fiscal_year
+      ,last_visit_date_cfy_pfy1
+      ,last_visit_desc_cfy_pfy1
+      ,last_event_date_cfy_pfy1
+      ,last_event_desc_cfy_pfy1
+      ,new_professional_personalized
+      ,recipient_segment */
+      ,case when active_personalized_list_tag = 'Y'
+                 then 'personalized_recipient_last_year'
+             when active_professional_list_tag = 'Y'
+                  and lower(professional_xcomment) like '%professional email%'
+                    then 'professional_email_recipient_last_year'
+             when active_professional_list_tag = 'Y'
+                  then 'professional_card_recipient_last_year'
+             when dfc_visit_cfy_pfy1 = 'Y'  
+               or event_attendee = 'Y'
+               or CSM = 'Y'
+               or GAB = 'Y'
+               or BOT_AND_ALUMNI = 'Y'
+               or ngc_1M_2008_to_present = 'Y'
+               or Executive_Board_for_Asia = 'Y'
+               --or Young_Alumni_Board = 'Y'
+                  then 'met_criteria_this_year'
+             --when dfc_visit_any_year = 'Y'
+                  --then 'visit_before_fy24'
+             --when inactive_professional_list_tag = 'Y'
+             --  or inactive_personalized_list_tag = 'Y'
+             --     then 'inactive_professional_personalized_tag'
+             else 'other' end as reason_for_being_on_list       
+from final_data
+--where recipient_segment in ('vendor', 'personalized')
+
+
+/*
+****remove the new_professional_personalized tag from the 3 people who are labeled "other" in reason_for_being_on_list
+**** remove selecting spectific ids for the next data pull
+*/
