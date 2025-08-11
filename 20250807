@@ -18,6 +18,7 @@ inner join mv_entity_ksm_degrees on mv_entity_ksm_degrees.donor_id = v_committee
 
 
 -- confirm with liam that the data in CATco is correct, if not, create a temp table (DISCUSS FURTHER WITH LIAM.. CREATE TEMP TABLE AND CHECK END DATES?)
+-- TALK WITH LIAM
 , CSM as (
 select mv_entity.household_id
       ,'Y' as CSM
@@ -34,6 +35,7 @@ from v_committee_asia
 inner join mv_entity on mv_entity.donor_id = v_committee_asia.constituent_donor_id
 )
 
+/*
 , dfc_visit_any_year as (
 select distinct mv_entity.household_id
       ,'Y' as dfc_visit_any_year
@@ -42,6 +44,7 @@ inner join mv_entity on mv_entity.salesforce_id = stg_alumni.ucinn_ascendv2__con
 where ucinn_ascendv2__contact_method__c = 'Visit'
 and ap_contact_report_author_constituent__c = '003Uz000008fdsIIAQ' -- DFC
 )
+*/
 
 , dfc_visit_past_year as (
 select distinct mv_entity.household_id
@@ -53,6 +56,12 @@ where ucinn_ascendv2__contact_method__c = 'Visit'
 and ap_contact_report_author_constituent__c = '003Uz000008fdsIIAQ' -- DFC
 and ucinn_ascendv2__date__c >= DATE '2024-10-01' -- the last date I pulled last years card was october 3rd, so pulling from start of october to be safe
 )
+
+/*
+
+- KLC Code (ask Amy)
+
+*/
 
 , planned_gift_donor as (
 select distinct household_id
@@ -124,6 +133,7 @@ inner join mv_entity on mv_entity.donor_id = v_committee_phs.constituent_donor_i
 )
 
 /*
+-- SERIO WILL COMPLETES
 , event_attendee as (
 
 )
@@ -323,15 +333,15 @@ where c.ap_is_primary_employment__c = 'true'
 group by mv_entity.household_id
 )
 
-/*
--- email (not running....)
+
+-- email (this subquery is adding an extra 15 seconds to the data pull...)
 , email as (
-select mv_entity.household_id
+select distinct mv_entity.household_id
        ,c.email
 from stg_alumni.contact c
 inner join mv_entity on mv_entity.donor_id = c.ucinn_ascendv2__donor_id__c
 )
-*/
+
 
 
 -- add KDHC_Notes_FY25 to code
@@ -354,12 +364,11 @@ select distinct mv_entity.household_id
       ,employ.primary_employer
       ,lagm_and_pm.prospect_manager_name
       ,lagm_and_pm.lagm_name
-      --,email.email
+      ,email.email
       ,GAB.GAB
       ,BOT_and_Alumni.BOT_and_Alumni
       ,CSM.CSM
       ,ebfa.ebfa
-      ,dfc_visit_any_year.dfc_visit_any_year
       ,dfc_visit_past_year.dfc_visit_past_year
       ,planned_gift_donor.planned_gift_donor
       ,kac.kac
@@ -375,6 +384,29 @@ select distinct mv_entity.household_id
       ,yab.yab
       ,tech.tech
       ,kfn_associate.kfn_associate
+      , Case When GAB.GAB Is Not Null Then 'GAB, ' End ||
+         Case When BOT_AND_ALUMNI Is Not Null Then 'BOT & alumni, ' End ||
+         Case When CSM.CSM Is Not Null Then 'Cornerstone, ' End ||
+         Case When ebfa.ebfa Is Not Null Then 'EBfA, ' End ||
+         Case When dfc_visit_past_year.dfc_visit_past_year Is Not Null Then 'DFC visit past year, ' End ||
+         --Case When KLC.KLC Is Not Null Then 'KLC, ' End ||
+         Case When planned_gift_donor.planned_gift_donor Is Not Null Then 'Planned gift donor, ' End ||
+         Case When KAC.KAC Is Not Null Then 'KAC, ' End ||
+         Case When PEVC.PEVC Is Not Null Then 'PEVC, ' End ||  
+         Case When Asia_PEVC.Asia_PEVC Is Not Null Then 'Asia PEVC, ' End ||
+         Case When MBAi.MBAi Is Not Null Then 'MBAi, ' End ||
+         Case When healthcare.healthcare Is Not Null Then 'Healthcare, ' End ||
+         Case When RealEstate.RealEstate Is Not Null Then 'Real Estate, ' End ||
+         Case When AMP.AMP Is Not Null Then 'AMP, ' End ||
+         Case When PHS.PHS Is Not Null Then 'PHS, ' End ||
+         --Case When event_attendee.event_attendee Is Not Null Then 'Event attendee, ' End ||
+         Case When full_circle_recognition_band = '$1M_kfc_donor' Then '$1M_kfc_donor, ' End ||
+         Case When full_circle_recognition_band = '$100K_kfc_donor' Then '$100K_kfc_donor, ' End ||
+         Case When Club_Leader.Club_Leader Is Not Null Then 'Club Leader, ' End ||
+         Case When yab.yab Is Not Null Then 'YAB, ' End ||
+         Case When tech.tech Is Not Null Then 'Tech Council, ' End ||
+         Case When KFN_Associate.KFN_Associate Is Not Null Then 'KFN Associate, ' End
+       As flags_concatenated
       ,Professional_list_Recipient.Professional_list_Recipient
       ,personalized_list_Recipient.personalized_list_Recipient
       ,vendor_list_Recipient.vendor_list_Recipient
@@ -389,18 +421,17 @@ left join GAB on GAB.household_id = mv_entity.household_id
 left join BOT_and_Alumni on BOT_and_Alumni.household_id = mv_entity.household_id
 left join CSM on CSM.household_id = mv_entity.household_id
 left join ebfa on ebfa.household_id = mv_entity.household_id
-left join dfc_visit_any_year on dfc_visit_any_year.household_id = mv_entity.household_id
 left join dfc_visit_past_year on dfc_visit_past_year.household_id = mv_entity.household_id
 left join planned_gift_donor on planned_gift_donor.household_id = mv_entity.household_id
 left join kac on kac.household_id = mv_entity.household_id
 left join pevc on pevc.household_id = mv_entity.household_id
+left join asia_pevc on asia_pevc.household_id = mv_entity.household_id
 left join mbai on mbai.household_id = mv_entity.household_id
 left join healthcare on healthcare.household_id = mv_entity.household_id
 left join realestate on realestate.household_id = mv_entity.household_id
 left join amp on amp.household_id = mv_entity.household_id
 left join phs on phs.household_id = mv_entity.household_id
 left join full_circle_recognition_band on full_circle_recognition_band.household_id = mv_entity.household_id
-left join asia_pevc on asia_pevc.household_id = mv_entity.household_id
 left join club_leader on club_leader.household_id = mv_entity.household_id
 left join yab on yab.household_id = mv_entity.household_id
 left join tech on tech.household_id = mv_entity.household_id
@@ -413,4 +444,4 @@ left join dean_salutation on dean_salutation.household_id = mv_entity.household_
 left join lagm_and_pm on lagm_and_pm.household_id = mv_entity.household_id
 left join special_handling on special_handling.household_id = mv_entity.household_id
 left join employ on employ.household_id = mv_entity.household_id
---left join email on email.household_id = mv_entity.household_id
+left join email on email.household_id = mv_entity.household_id
