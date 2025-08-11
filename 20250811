@@ -279,7 +279,7 @@ where mv_entity.household_id = 0000648089
 
 
 , dean_salutation as (
-select mv_entity.household_id
+select household_id
       ,P_Dean_Salut
       ,p_full_name
       ,P_Dean_Source
@@ -289,7 +289,6 @@ select mv_entity.household_id
       ,Joint_Dean_Salut
       ,Joint_Fullname
 from v_entity_salutations
-inner join mv_entity on mv_entity.donor_id = v_entity_salutations.donor_id
 )
 
 
@@ -333,14 +332,15 @@ where c.ap_is_primary_employment__c = 'true'
 group by mv_entity.household_id
 )
 
-
--- email (this subquery is adding an extra 15 seconds to the data pull...)
+/*
+-- email (this subquery is adding duplicates, might not need to include if we don't have vendor cards this year)
 , email as (
 select distinct mv_entity.household_id
        ,c.email
 from stg_alumni.contact c
 inner join mv_entity on mv_entity.donor_id = c.ucinn_ascendv2__donor_id__c
 )
+*/
 
 -- Holiday Card Notes from Last Year
 , KDHC_Notes_FY25_HH as (
@@ -355,14 +355,17 @@ inner join mv_entity on mv_entity.donor_id = KDHC_Notes_FY25.Id_Number
 
 -- add KDHC_Notes_FY25 to code
 select distinct mv_entity.household_id
+      ,mv_entity.household_primary
       ,dean_salutation.P_Dean_Salut
       ,dean_salutation.p_full_name
+      ,mv_entity.institutional_suffix
       ,special_handling.service_indicators_concat
       ,special_handling.No_contact
       ,special_handling.NO_Mail_IND
       ,special_handling.NO_EMail_IND 
       ,dean_salutation.Spouse_Dean_Salut
       ,dean_salutation.spouse_full_name
+      ,mv_entity.spouse_institutional_suffix
       ,special_handling.spouse_service_indicators_concat
       ,special_handling.spouse_No_contact
       ,special_handling.spouse_NO_Mail_IND
@@ -373,7 +376,6 @@ select distinct mv_entity.household_id
       ,employ.primary_employer
       ,lagm_and_pm.prospect_manager_name
       ,lagm_and_pm.lagm_name
-      ,email.email
       ,GAB.GAB
       ,BOT_and_Alumni.BOT_and_Alumni
       ,CSM.CSM
@@ -455,5 +457,5 @@ left join dean_salutation on dean_salutation.household_id = mv_entity.household_
 left join lagm_and_pm on lagm_and_pm.household_id = mv_entity.household_id
 left join special_handling on special_handling.household_id = mv_entity.household_id
 left join employ on employ.household_id = mv_entity.household_id
-left join email on email.household_id = mv_entity.household_id
 left join KDHC_Notes_FY25_HH on KDHC_Notes_FY25_HH.household_id = mv_entity.household_id
+where mv_entity.household_primary = 'Y'
