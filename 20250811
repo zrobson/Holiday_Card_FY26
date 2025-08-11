@@ -70,6 +70,7 @@ and ucinn_ascendv2__date__c >= DATE '2024-10-01' -- the last date I pulled last 
 group by mv_entity.household_id
 )
 
+
 /*
 
 - KLC Code (ask Amy)
@@ -237,6 +238,16 @@ select mv_entity.household_id
       ,holiday_card_vendor.xcomment
 from holiday_card_vendor
 inner join mv_entity on mv_entity.donor_id = holiday_card_vendor.id_number
+)
+
+, dfc_visit_not_personalized_or_prof as (
+select dfc_visit_past_year.household_id
+      ,'Y' as dfc_visit_not_personalized_or_prof
+from dfc_visit_past_year
+left join Professional_list_Recipient on Professional_list_Recipient.household_id = dfc_visit_past_year.household_id
+left join personalized_list_Recipient on personalized_list_Recipient.household_id = dfc_visit_past_year.household_id
+where Professional_list_Recipient.Professional_list_Recipient is null
+and personalized_list_Recipient.personalized_list_Recipient is null
 )
 
 /*
@@ -434,6 +445,7 @@ select distinct mv_entity.household_id
       ,vendor_list_Recipient.vendor_list_Recipient
       ,Professional_list_Recipient.Professional_list_Recipient
       ,personalized_list_Recipient.personalized_list_Recipient
+      ,dfc_visit_not_personalized_or_prof.dfc_visit_not_personalized_or_prof
       ,KDHC_Notes_FY25_HH.Segment_Description
       ,KDHC_Notes_FY25_HH.Note_Text
       ,dfc_visit_past_year_data.dfc_visit_past_year_dates
@@ -451,6 +463,7 @@ left join CSM on CSM.household_id = mv_entity.household_id
 left join ebfa on ebfa.household_id = mv_entity.household_id
 left join dfc_visit_past_year on dfc_visit_past_year.household_id = mv_entity.household_id
 left join dfc_visit_past_year_data on dfc_visit_past_year_data.household_id = mv_entity.household_id
+left join dfc_visit_not_personalized_or_prof on dfc_visit_not_personalized_or_prof.household_id = mv_entity.household_id
 left join planned_gift_donor on planned_gift_donor.household_id = mv_entity.household_id
 left join kac on kac.household_id = mv_entity.household_id
 left join pevc on pevc.household_id = mv_entity.household_id
