@@ -57,6 +57,19 @@ and ap_contact_report_author_constituent__c = '003Uz000008fdsIIAQ' -- DFC
 and ucinn_ascendv2__date__c >= DATE '2024-10-01' -- the last date I pulled last years card was october 3rd, so pulling from start of october to be safe
 )
 
+, dfc_visit_past_year_data as (
+select mv_entity.household_id
+    , listagg(stg_alumni.ucinn_ascendv2__contact_report__c.ucinn_ascendv2__date__c, chr(13)) Within Group (Order By stg_alumni.ucinn_ascendv2__contact_report__c.ucinn_ascendv2__date__c) As dfc_visit_past_year_dates
+    , listagg(stg_alumni.ucinn_ascendv2__contact_report__c.ucinn_ascendv2__description__c, chr(13)) Within Group (Order By stg_alumni.ucinn_ascendv2__contact_report__c.ucinn_ascendv2__date__c) As dfc_visit_past_year_details
+from stg_alumni.ucinn_ascendv2__contact_report__c
+inner join mv_entity on mv_entity.salesforce_id = stg_alumni.ucinn_ascendv2__contact_report__c.ucinn_ascendv2__contact__c
+cross join v_current_calendar
+where ucinn_ascendv2__contact_method__c = 'Visit'
+and ap_contact_report_author_constituent__c = '003Uz000008fdsIIAQ' -- DFC
+and ucinn_ascendv2__date__c >= DATE '2024-10-01' -- the last date I pulled last years card was october 3rd, so pulling from start of october to be safe
+group by mv_entity.household_id
+)
+
 /*
 
 - KLC Code (ask Amy)
@@ -423,6 +436,8 @@ select distinct mv_entity.household_id
       ,personalized_list_Recipient.personalized_list_Recipient
       ,KDHC_Notes_FY25_HH.Segment_Description
       ,KDHC_Notes_FY25_HH.Note_Text
+      ,dfc_visit_past_year_data.dfc_visit_past_year_dates
+      ,dfc_visit_past_year_data.dfc_visit_past_year_details
       ,last_gift.last_ngc_tx_id
       ,last_gift.last_ngc_date
       ,last_gift.last_ngc_opportunity_type
@@ -435,6 +450,7 @@ left join BOT_and_Alumni on BOT_and_Alumni.household_id = mv_entity.household_id
 left join CSM on CSM.household_id = mv_entity.household_id
 left join ebfa on ebfa.household_id = mv_entity.household_id
 left join dfc_visit_past_year on dfc_visit_past_year.household_id = mv_entity.household_id
+left join dfc_visit_past_year_data on dfc_visit_past_year_data.household_id = mv_entity.household_id
 left join planned_gift_donor on planned_gift_donor.household_id = mv_entity.household_id
 left join kac on kac.household_id = mv_entity.household_id
 left join pevc on pevc.household_id = mv_entity.household_id
