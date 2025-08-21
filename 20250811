@@ -375,11 +375,32 @@ from KDHC_Notes_FY25
 inner join mv_entity on mv_entity.donor_id = KDHC_Notes_FY25.Id_Number
 )
 
+, prop As (
+Select household_id
+     , listagg(proposal_active_indicator, ', ') Within Group (Order By proposal_submitted_date ASC) As Prop_Active_Ind
+--     , proposal_stage
+--     , proposal_type
+     , listagg(proposal_name, ', ') Within Group (Order By proposal_submitted_date ASC) As Prop_Name
+--     , proposal_probability
+--     , proposal_amount
+--     , proposal_submitted_amount
+--     , proposal_anticipated_amount
+--     , proposal_created_date
+     , listagg(proposal_submitted_date, ', ') Within Group (Order By proposal_submitted_date ASC) As Prop_Submitted_Date
+--     , proposal_designation_units
+     , listagg(ksm_flag, ', ') Within Group (Order By proposal_submitted_date ASC) As Prop_KSM_Flag
+--     , active_proposal_manager_name
+--     , active_proposal_manager_unit
+From mv_proposals
+Where proposal_active_indicator = 'Y'
+Group By household_id
+)
 
 
 -- add KDHC_Notes_FY25 to code
 select distinct mv_entity.household_id
       ,mv_entity.household_primary
+      ,mv_entity.last_name as household_last_name
       ,dean_salutation.P_Dean_Salut
       ,dean_salutation.p_full_name
       ,mv_entity.institutional_suffix
@@ -456,6 +477,15 @@ select distinct mv_entity.household_id
       ,last_gift.last_ngc_designation_id
       ,last_gift.last_ngc_designation
       ,last_gift.last_ngc_recognition_credit
+      ,prop.Prop_Active_Ind
+      ,prop.Prop_KSM_Flag
+      ,prop.Prop_Name
+      ,giv.full_circle_credit
+      ,giv.full_circle_recognition
+      ,Case When giv.full_circle_recognition >= '1000000'
+            Then '$1M+' When giv.full_circle_recognition >= '100000'
+              Then '$100,000 - $999,999' When giv.full_circle_recognition > '1'
+              Then 'Under $100k' Else '' End as KFC_Donor_Recognition_Level
 from mv_entity
 left join GAB on GAB.household_id = mv_entity.household_id
 left join BOT_and_Alumni on BOT_and_Alumni.household_id = mv_entity.household_id
@@ -487,4 +517,10 @@ left join lagm_and_pm on lagm_and_pm.household_id = mv_entity.household_id
 left join special_handling on special_handling.household_id = mv_entity.household_id
 left join employ on employ.household_id = mv_entity.household_id
 left join KDHC_Notes_FY25_HH on KDHC_Notes_FY25_HH.household_id = mv_entity.household_id
+left join mv_ksm_giving_summary giv on giv.household_id = mv_entity.household_id
+left join prop on prop.household_id = mv_entity.household_id
 where mv_entity.household_primary = 'Y'
+--and dfc_visit_not_personalized_or_prof = 'Y'
+/*
+to pull the list of people DFC visited this past year AND did not received personalized or professional card last year, add in the condition above
+*/
