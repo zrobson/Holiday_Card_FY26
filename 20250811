@@ -1,5 +1,5 @@
 
-
+-- global advisory board
 with  GAB as (
 select mv_entity.household_id
       ,'Y' as GAB
@@ -8,6 +8,7 @@ inner join mv_entity on mv_entity.donor_id = v_committee_gab.constituent_donor_i
 where involvement_role = 'Member'
 )
 
+-- board of trustee and ksm alumni
 , BOT_and_Alumni as (
 select mv_entity.household_id
       ,'Y' as BOT_and_Alumni
@@ -28,6 +29,7 @@ where ap_giving_society_name_text__C = 'KSM Cornerstone Donors'
 and ucinn_ascendv2__membership_status__c = 'Active'
 )
 
+-- executive board for asia
 , ebfa as (
 select mv_entity.household_id
       ,'Y' as ebfa
@@ -46,6 +48,7 @@ and ap_contact_report_author_constituent__c = '003Uz000008fdsIIAQ' -- DFC
 )
 */
 
+-- dfc visit past year flag
 , dfc_visit_past_year as (
 select distinct mv_entity.household_id
        ,'Y' as dfc_visit_past_year
@@ -57,6 +60,7 @@ and ap_contact_report_author_constituent__c = '003Uz000008fdsIIAQ' -- DFC
 and ucinn_ascendv2__date__c >= DATE '2024-10-01' -- the last date I pulled last years card was october 3rd, so pulling from start of october to be safe
 )
 
+-- listagging dfc visit past year data
 , dfc_visit_past_year_data as (
 select mv_entity.household_id
     , listagg(stg_alumni.ucinn_ascendv2__contact_report__c.ucinn_ascendv2__date__c, chr(13)) Within Group (Order By stg_alumni.ucinn_ascendv2__contact_report__c.ucinn_ascendv2__date__c) As dfc_visit_past_year_dates
@@ -73,10 +77,12 @@ group by mv_entity.household_id
 
 /*
 
-- KLC Code (ask Amy)
+- Create KLC Flag (ask Amy)
 
 */
 
+
+-- 
 , planned_gift_donor as (
 select distinct household_id
        ,'Y' as planned_gift_donor
